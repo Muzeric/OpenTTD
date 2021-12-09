@@ -7,6 +7,7 @@
 
 /** @file rail_gui.cpp %File for dealing with rail construction user interface */
 
+#include <queue>
 #include "stdafx.h"
 #include "gui.h"
 #include "window_gui.h"
@@ -54,6 +55,12 @@ static bool _convert_signal_button;          ///< convert signal button in the s
 static SignalVariant _cur_signal_variant;    ///< set the signal variant (for signal GUI)
 static SignalType _cur_signal_type;          ///< set the signal type (for signal GUI)
 
+enum AddRailsMode : byte {
+	NONE = 2,
+	LEFT = 0,
+	RIGHT = 1,
+};
+
 struct RailStationGUISettings {
 	Axis orientation;                 ///< Currently selected rail station orientation
 
@@ -61,6 +68,10 @@ struct RailStationGUISettings {
 	StationClassID station_class;     ///< Currently selected custom station class (if newstations is \c true )
 	byte station_type;                ///< %Station type within the currently selected custom station class (if newstations is \c true )
 	byte station_count;               ///< Number of custom stations (if newstations is \c true )
+
+	AddRailsMode extra_rails_mode;			  ///< Mode of adding some rails, depot and signals
+	std::queue<CommandContainer> cmdcont;
+	uint16 cmd_last_tick;
 };
 static RailStationGUISettings _railstation; ///< Settings of the station builder GUI
 
@@ -170,11 +181,134 @@ static void PlaceRail_Waypoint(TileIndex tile)
 	}
 }
 
+static const Track _place_extra_rails_track[] = {
+	TRACK_X, TRACK_Y
+};
+
+static const DiagDirection _place_extra_rails_dir[] = {
+	DIAGDIR_SW, DIAGDIR_NW,
+	DIAGDIR_NE, DIAGDIR_SE,
+
+	DIAGDIR_SE, DIAGDIR_SW,
+};
+
+static const HighLightStyle _place_extra_rails_hl[] = {
+	// 4*orient + 2*mode + up/down
+	HT_DIR_VR, HT_DIR_HU, // X-LEFT-Up  X-LEFT-Down
+	HT_DIR_HL, HT_DIR_VL, // X-RIGHT-Up X-RIGHT-Down
+	HT_DIR_HL, HT_DIR_VR, // Y-LEFT-Up  Y-LEFT-Down
+	HT_DIR_VL, HT_DIR_HU, // Y-RIGHT-Up Y-RIGHT-Down
+};
+
 void CcStation(const CommandCost &result, TileIndex tile, uint32 p1, uint32 p2, uint32 cmd)
 {
 	if (result.Failed()) return;
 
 	if (_settings_client.sound.confirm) SndPlayTileFx(SND_20_CONSTRUCTION_RAIL, tile);
+
+	if (_railstation.extra_rails_mode != NONE) {
+		int numtracks = GB(p1, 8, 8);
+		int platlength = GB(p1, 16, 8);
+		int entry_diff = _railstation.extra_rails_mode + _railstation.orientation != 1 ? platlength : 1;
+		int exit_diff = _railstation.extra_rails_mode + _railstation.orientation == 1 ? platlength : 1;
+		TileIndexDiff along_diff = TileOffsByDiagDir(_place_extra_rails_dir[_railstation.extra_rails_mode * 2 + _railstation.orientation]);
+		TileIndexDiff across_diff = TileOffsByDiagDir(_place_extra_rails_dir[4 + _railstation.orientation]);
+
+		Track first_track = _place_extra_rails_track[_railstation.orientation];
+
+		int entry_track = numtracks > 2 ? numtracks - 2 : int(numtracks / 2);
+		int exit_track = _railstation.extra_rails_mode ? 0 : numtracks - 1;
+
+		uint32 entry_signal_p1 = _railstation.orientation; // TRACK_BIT_Y | TRACK_BIT_X
+		SB(entry_signal_p1, 3, 1, false);
+		SB(entry_signal_p1, 4, 1, SIG_ELECTRIC);
+		SB(entry_signal_p1, 5, 3, SIGTYPE_PBS);
+		SB(entry_signal_p1, 8, 1, false);
+
+		uint32 exit_signal_p1 = _railstation.orientation; // TRACK_BIT_Y | TRACK_BIT_X
+		SB(exit_signal_p1, 3, 1, false);
+		SB(exit_signal_p1, 4, 1, SIG_ELECTRIC);
+		SB(exit_signal_p1, 5, 3, SIGTYPE_PBS_ONEWAY);
+		SB(exit_signal_p1, 8, 1, false);
+
+		CommandContainer cont;
+
+		for (int i = 0; i < numtracks; i++) {
+			TileIndex entry_tile =
+				tile
+				+ entry_diff * along_diff
+				+ i * across_diff;
+
+			if (i == entry_track) {
+				int mode = _railstation.orientation; // HT_DIR_X | HT_DIR_Y
+				uint32 p2 = _cur_railtype | (mode << 6);
+				cont = { entry_tile,
+					entry_tile + (entry_track + 2) * along_diff,
+					p2,
+					CMD_BUILD_RAILROAD_TRACK | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK)
+				};
+				_railstation.cmdcont.push(cont);
+
+				TileIndex depo_tile = entry_tile + (entry_track + 1) * along_diff + across_diff;
+				DiagDirection depo_dir = _railstation.orientation ? DIAGDIR_NE : DIAGDIR_NW;
+				cont = { depo_tile, _cur_railtype, depo_dir, CMD_BUILD_TRAIN_DEPOT | CMD_MSG(STR_ERROR_CAN_T_BUILD_TRAIN_DEPOT), CcRailDepot };
+				_railstation.cmdcont.push(cont);
+				depo_tile = entry_tile + (entry_track + 1) * along_diff - across_diff;
+				depo_dir = _railstation.orientation ? DIAGDIR_SW : DIAGDIR_SE;
+				cont = { depo_tile, _cur_railtype, depo_dir, CMD_BUILD_TRAIN_DEPOT | CMD_MSG(STR_ERROR_CAN_T_BUILD_TRAIN_DEPOT), CcRailDepot };
+				_railstation.cmdcont.push(cont);
+
+				cont = { entry_tile + (entry_track + 1) * along_diff, _cur_railtype, first_track, CMD_REMOVE_SINGLE_RAIL };
+				_railstation.cmdcont.push(cont);
+				cont = { entry_tile + (entry_track + 2) * along_diff, entry_signal_p1, (uint32)(_railstation.extra_rails_mode ? 4 : 8), CMD_BUILD_SIGNALS | CMD_MSG(STR_ERROR_CAN_T_BUILD_SIGNALS_HERE) };
+				_railstation.cmdcont.push(cont);
+				cont = { entry_tile + entry_track * along_diff,	   entry_signal_p1, (uint32)(_railstation.extra_rails_mode ? 4 : 8), CMD_BUILD_SIGNALS | CMD_MSG(STR_ERROR_CAN_T_BUILD_SIGNALS_HERE) };
+				_railstation.cmdcont.push(cont);
+			}
+			else {
+				int mode = _place_extra_rails_hl[4 * _railstation.orientation + 2 * _railstation.extra_rails_mode + (i > entry_track)];
+				uint32 p2 = _cur_railtype | (mode << 6);
+				cont = { entry_tile,
+					tile + (entry_diff + abs(entry_track - i) - 1) * along_diff + entry_track * across_diff,
+					p2,
+					CMD_BUILD_RAILROAD_TRACK | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK)
+				};
+				_railstation.cmdcont.push(cont);
+			}
+
+			TileIndex exit_tile =
+				tile
+				- exit_diff * along_diff
+				+ i * across_diff;
+			if (i == exit_track) {
+				int mode = _railstation.orientation; // HT_DIR_X | HT_DIR_Y
+				uint32 p2 = _cur_railtype | (mode << 6);
+				cont = { exit_tile,
+					exit_tile - numtracks * along_diff,
+					p2,
+					CMD_BUILD_RAILROAD_TRACK | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK)
+				};
+				_railstation.cmdcont.push(cont);
+				cont = { exit_tile - numtracks * along_diff, exit_signal_p1, (uint32)(_railstation.extra_rails_mode ? 4 : 8), CMD_BUILD_SIGNALS | CMD_MSG(STR_ERROR_CAN_T_BUILD_SIGNALS_HERE) };
+				_railstation.cmdcont.push(cont);
+			}
+			else {
+				cont = { exit_tile, _cur_railtype, (uint32)(first_track | (_settings_client.gui.auto_remove_signals << 3)), CMD_BUILD_SINGLE_RAIL };
+				_railstation.cmdcont.push(cont);
+				int mode = _place_extra_rails_hl[4 * _railstation.orientation + 2 * (1 - _railstation.extra_rails_mode) + (i > exit_track)];
+				uint32 p2 = _cur_railtype | (mode << 6);
+				cont = { exit_tile - along_diff,
+					tile - (exit_diff + abs(exit_track - i)) * along_diff + exit_track * across_diff,
+					p2,
+					CMD_BUILD_RAILROAD_TRACK | CMD_MSG(STR_ERROR_CAN_T_BUILD_RAILROAD_TRACK)
+				};
+				_railstation.cmdcont.push(cont);
+			}
+			cont = { exit_tile, exit_signal_p1, (uint32)(_railstation.extra_rails_mode ? 4 : 8), CMD_BUILD_SIGNALS | CMD_MSG(STR_ERROR_CAN_T_BUILD_SIGNALS_HERE) };
+			_railstation.cmdcont.push(cont);
+		}
+	}
+
 	/* Only close the station builder window if the default station and non persistent building is chosen. */
 	if (_railstation.station_class == STAT_CLASS_DFLT && _railstation.station_type == 0 && !_settings_client.gui.persistent_buildingtools) ResetObjectToPlace();
 }
@@ -973,6 +1107,7 @@ public:
 		this->coverage_height = 2 * FONT_HEIGHT_NORMAL + 3 * WD_PAR_VSEP_NORMAL;
 		this->vscroll = nullptr;
 		_railstation.newstations = newstation;
+		_railstation.extra_rails_mode = NONE;
 
 		this->CreateNestedTree();
 		NWidgetStacked *newst_additions = this->GetWidget<NWidgetStacked>(WID_BRAS_SHOW_NEWST_ADDITIONS);
@@ -1236,6 +1371,8 @@ public:
 
 			case WID_BRAS_PLATFORM_DIR_X:
 			case WID_BRAS_PLATFORM_DIR_Y:
+			case WID_BRAS_PLATFORM_RAILS_LEFT:
+			case WID_BRAS_PLATFORM_RAILS_RIGHT:
 			case WID_BRAS_IMAGE:
 				size->width  = ScaleGUITrad(64) + 2;
 				size->height = ScaleGUITrad(58) + 2;
@@ -1283,6 +1420,33 @@ public:
 					}
 					_cur_dpi = old_dpi;
 				}
+				break;
+
+			case WID_BRAS_PLATFORM_RAILS_LEFT:
+				if (FillDrawPixelInfo(&tmp_dpi, r.left, r.top, r.right - r.left + 1, r.bottom - r.top + 1)) {
+					DrawPixelInfo* old_dpi = _cur_dpi;
+					_cur_dpi = &tmp_dpi;
+					int x = ScaleGUITrad(31) + 1;
+					int y = r.bottom - r.top - ScaleGUITrad(31);
+					if (!DrawStationTile(x, y, _cur_railtype, _railstation.orientation, _railstation.station_class, _railstation.station_type)) {
+						StationPickerDrawSprite(x, y, STATION_RAIL, _cur_railtype, INVALID_ROADTYPE, _railstation.orientation + 8);
+					}
+					_cur_dpi = old_dpi;
+				}
+
+				break;
+			case WID_BRAS_PLATFORM_RAILS_RIGHT:
+				if (FillDrawPixelInfo(&tmp_dpi, r.left, r.top, r.right - r.left + 1, r.bottom - r.top + 1)) {
+					DrawPixelInfo* old_dpi = _cur_dpi;
+					_cur_dpi = &tmp_dpi;
+					int x = ScaleGUITrad(31) + 1;
+					int y = r.bottom - r.top - ScaleGUITrad(31);
+					if (!DrawStationTile(x, y, _cur_railtype, _railstation.orientation, _railstation.station_class, _railstation.station_type)) {
+						StationPickerDrawSprite(x, y, STATION_RAIL, _cur_railtype, INVALID_ROADTYPE, _railstation.orientation + 10);
+					}
+					_cur_dpi = old_dpi;
+				}
+			
 				break;
 
 			case WID_BRAS_NEWST_LIST: {
@@ -1351,6 +1515,20 @@ public:
 				if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
 				this->SetDirty();
 				CloseWindowById(WC_SELECT_STATION, 0);
+				break;
+
+			case WID_BRAS_PLATFORM_RAILS_LEFT:
+			case WID_BRAS_PLATFORM_RAILS_RIGHT:
+				if ((AddRailsMode)(widget - WID_BRAS_PLATFORM_RAILS_LEFT) == _railstation.extra_rails_mode) {
+					this->RaiseWidget(widget);
+					_railstation.extra_rails_mode = NONE;
+				} else {
+					this->LowerWidget(widget);
+					this->RaiseWidget(WID_BRAS_PLATFORM_RAILS_LEFT + 1 - (widget - WID_BRAS_PLATFORM_RAILS_LEFT));
+					_railstation.extra_rails_mode = (AddRailsMode)(widget - WID_BRAS_PLATFORM_RAILS_LEFT);
+				}
+				if (_settings_client.sound.click_beep) SndPlayFx(SND_15_BEEP);
+				this->SetDirty();
 				break;
 
 			case WID_BRAS_PLATFORM_NUM_1:
@@ -1514,6 +1692,12 @@ public:
 	void OnRealtimeTick(uint delta_ms) override
 	{
 		CheckRedrawStationCoverage(this);
+
+		if (_railstation.cmdcont.size() && (_tick_counter & 1) == 0 && _tick_counter != _railstation.cmd_last_tick) {
+			DoCommandP(&_railstation.cmdcont.front());
+			_railstation.cmdcont.pop();
+			_railstation.cmd_last_tick = _tick_counter;
+		}
 	}
 
 	static HotkeyList hotkeys;
@@ -1583,6 +1767,16 @@ static const NWidgetPart _nested_station_builder_widgets[] = {
 					NWidget(WWT_PANEL, COLOUR_GREY, WID_BRAS_PLATFORM_DIR_Y), SetMinimalSize(66, 60), SetFill(0, 0), SetDataTip(0x0, STR_STATION_BUILD_RAILROAD_ORIENTATION_TOOLTIP), EndContainer(),
 					NWidget(NWID_SPACER), SetMinimalSize(7, 0), SetFill(1, 0),
 				EndContainer(),
+
+				NWidget(WWT_LABEL, COLOUR_DARK_GREEN), SetMinimalSize(144, 11), SetDataTip(STR_STATION_BUILD_EXTRA_RAILS, STR_NULL), SetPadding(1, 2, 0, 0),
+				NWidget(NWID_HORIZONTAL),
+					NWidget(NWID_SPACER), SetMinimalSize(7, 0), SetFill(1, 0),
+					NWidget(WWT_PANEL, COLOUR_GREY, WID_BRAS_PLATFORM_RAILS_LEFT), SetMinimalSize(66, 60), SetFill(0, 0), SetDataTip(0x0, STR_STATION_BUILD_RAILROAD_EXTRA_RAILS_TOOLTIP), EndContainer(),
+					NWidget(NWID_SPACER), SetMinimalSize(2, 0), SetFill(1, 0),
+					NWidget(WWT_PANEL, COLOUR_GREY, WID_BRAS_PLATFORM_RAILS_RIGHT), SetMinimalSize(66, 60), SetFill(0, 0), SetDataTip(0x0, STR_STATION_BUILD_RAILROAD_EXTRA_RAILS_TOOLTIP), EndContainer(),
+					NWidget(NWID_SPACER), SetMinimalSize(7, 0), SetFill(1, 0),
+				EndContainer(),
+
 				NWidget(WWT_LABEL, COLOUR_DARK_GREEN, WID_BRAS_SHOW_NEWST_TYPE), SetMinimalSize(144, 11), SetDataTip(STR_ORANGE_STRING, STR_NULL), SetPadding(1, 2, 4, 2),
 				NWidget(WWT_LABEL, COLOUR_DARK_GREEN), SetMinimalSize(144, 11), SetDataTip(STR_STATION_BUILD_NUMBER_OF_TRACKS, STR_NULL), SetPadding(0, 2, 0, 2),
 				NWidget(NWID_HORIZONTAL),

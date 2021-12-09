@@ -35,6 +35,8 @@ enum BuildRailStationWidgets {
 	/* Name starts with BRA instead of BR, because of collision with BuildRoadStationWidgets */
 	WID_BRAS_PLATFORM_DIR_X,       ///< Button to select '/' view.
 	WID_BRAS_PLATFORM_DIR_Y,       ///< Button to select '\' view.
+	WID_BRAS_PLATFORM_RAILS_LEFT,  ///< Button to select mode of left addtional station rails
+	WID_BRAS_PLATFORM_RAILS_RIGHT, ///< Button to select mode of right addtional station rails
 
 	WID_BRAS_PLATFORM_NUM_1,       ///< Button to select stations with a single platform.
 	WID_BRAS_PLATFORM_NUM_2,       ///< Button to select stations with 2 platforms.

@@ -2666,6 +2666,9 @@ STR_STATION_BUILD_PLATFORM_LENGTH_TOOLTIP                       :{BLACK}Select l
 STR_STATION_BUILD_DRAG_DROP                                     :{BLACK}Drag & Drop
 STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Build a station using drag & drop
 
+STR_STATION_BUILD_EXTRA_RAILS                                   :{BLACK}Additional rails
+STR_STATION_BUILD_RAILROAD_EXTRA_RAILS_TOOLTIP                    :{BLACK}Type of additional rails
+
 STR_STATION_BUILD_STATION_CLASS_TOOLTIP                         :{BLACK}Select a station class to display
 STR_STATION_BUILD_STATION_TYPE_TOOLTIP                          :{BLACK}Select the station type to build
 

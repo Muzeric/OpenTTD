@@ -114,6 +114,39 @@ static const DrawTileSeqStruct _station_display_datas_7[] = {
 	TILE_SEQ_END()
 };
 
+static const DrawTileSeqStruct _station_display_datas_8[] = {
+	TILE_SEQ_LINE(-10, 0,  0,  5, 16,  2, SPR_RAIL_TRACK_X | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(6,   0,  0,  5, 16,  2, SPR_RAIL_SINGLE_X | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(-10, 0,  0, 16,  5, 15, SPR_RAIL_PLATFORM_BUILDING_X | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(-10, 11, 0, 16,  5,  2, SPR_RAIL_PLATFORM_X_FRONT | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(-10, 11, 0, 16,  5,  2, SPR_IMG_SIGNAL_ELECTRIC_NORM | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_END()
+};
+
+static const DrawTileSeqStruct _station_display_datas_9[] = {
+	TILE_SEQ_LINE(0,  10,  0, 5, 16,  2, SPR_RAIL_TRACK_Y | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(0,  -6,  0, 5, 16,  2, SPR_RAIL_SINGLE_Y | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(0,  10,  0, 5, 16, 15, SPR_RAIL_PLATFORM_BUILDING_Y | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(11, 10,  0, 5, 16,  2, SPR_RAIL_PLATFORM_Y_FRONT | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_END()
+};
+
+static const DrawTileSeqStruct _station_display_datas_10[] = {
+	TILE_SEQ_LINE(10, 0,  0,  5, 16,  2, SPR_RAIL_TRACK_X | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(-6, 0,  0,  5, 16,  2, SPR_RAIL_SINGLE_X | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(10, 0,  0, 16,  5, 15, SPR_RAIL_PLATFORM_BUILDING_X | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(10, 11, 0, 16,  5,  2, SPR_RAIL_PLATFORM_X_FRONT | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_END()
+};
+
+static const DrawTileSeqStruct _station_display_datas_11[] = {
+	TILE_SEQ_LINE(0,  -10,  0, 5, 16,  2, SPR_RAIL_TRACK_Y | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(0,    6,  0, 5, 16,  2, SPR_RAIL_SINGLE_Y | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(0,  -10,  0, 5, 16, 15, SPR_RAIL_PLATFORM_BUILDING_Y | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_LINE(11, -10,  0, 5, 16,  2, SPR_RAIL_PLATFORM_Y_FRONT | (1U << PALETTE_MODIFIER_COLOUR))
+	TILE_SEQ_END()
+};
+
 static const DrawTileSeqStruct _station_display_fence_nw[] = {
 	TILE_SEQ_GROUND( 0,  0,  0, SPR_AIRPORT_FENCE_X | (1U << PALETTE_MODIFIER_COLOUR)) // fences north
 	TILE_SEQ_END()
@@ -798,6 +831,10 @@ extern const DrawTileSprites _station_display_datas_rail[] = {
 	TILE_SPRITE_LINE(SPR_RAIL_TRACK_Y,               _station_display_datas_5)
 	TILE_SPRITE_LINE(SPR_RAIL_TRACK_X,               _station_display_datas_6)
 	TILE_SPRITE_LINE(SPR_RAIL_TRACK_Y,               _station_display_datas_7)
+	TILE_SPRITE_LINE(SPR_RAIL_SINGLE_X,              _station_display_datas_8)
+	TILE_SPRITE_LINE(SPR_RAIL_SINGLE_Y,              _station_display_datas_9)
+	TILE_SPRITE_LINE(SPR_RAIL_SINGLE_X,              _station_display_datas_10)
+	TILE_SPRITE_LINE(SPR_RAIL_SINGLE_Y,              _station_display_datas_11)
 };
 
 static const DrawTileSprites _station_display_datas_airport[] = {
@@ -973,6 +1010,10 @@ static const DrawTileSprites _station_display_datas_buoy[] = {
 };
 
 static const DrawTileSprites _station_display_datas_waypoint[] = {
+	TILE_SPRITE_LINE(SPR_RAIL_TRACK_X,               _station_display_datas_waypoint_X)
+	TILE_SPRITE_LINE(SPR_RAIL_TRACK_Y,               _station_display_datas_waypoint_Y)
+	TILE_SPRITE_LINE(SPR_RAIL_TRACK_X,               _station_display_datas_waypoint_X)
+	TILE_SPRITE_LINE(SPR_RAIL_TRACK_Y,               _station_display_datas_waypoint_Y)
 	TILE_SPRITE_LINE(SPR_RAIL_TRACK_X,               _station_display_datas_waypoint_X)
 	TILE_SPRITE_LINE(SPR_RAIL_TRACK_Y,               _station_display_datas_waypoint_Y)
 	TILE_SPRITE_LINE(SPR_RAIL_TRACK_X,               _station_display_datas_waypoint_X)

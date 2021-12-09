@@ -2837,6 +2837,9 @@ STR_STATION_BUILD_PLATFORM_LENGTH_TOOLTIP                       :{BLACK}Укаж
 STR_STATION_BUILD_DRAG_DROP                                     :{BLACK}Произвольно
 STR_STATION_BUILD_DRAG_DROP_TOOLTIP                             :{BLACK}Постройка станции на указанном игроком участке
 
+STR_STATION_BUILD_EXTRA_RAILS										:{BLACK}Дополнительные рельсы
+STR_STATION_BUILD_RAILROAD_EXTRA_RAILS_TOOLTIP					:{BLACK}Тип дополнительных рельс
+
 STR_STATION_BUILD_STATION_CLASS_TOOLTIP                         :{BLACK}Выберите класс станций для отображения
 STR_STATION_BUILD_STATION_TYPE_TOOLTIP                          :{BLACK}Выберите тип станции для постройки
 
